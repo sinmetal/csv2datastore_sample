@@ -1,3 +1,6 @@
 queue:
 - name: default
-  rate: 1/s
+  rate: 4/s
+- name: import
+  rate: 8/s
+  bucket_size: 32

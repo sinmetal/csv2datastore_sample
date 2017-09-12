@@ -61,6 +61,7 @@ func importCSV(ctx context.Context, bucketName string, objectName string) error 
 	defer or.Close()
 
 	r := csv.NewReader(or)
+	var tasks []*taskqueue.Task
 	for {
 		record, err := r.Read()
 		if err == io.EOF {
@@ -70,11 +71,25 @@ func importCSV(ctx context.Context, bucketName string, objectName string) error 
 		}
 		log.Infof(ctx, "%v", record)
 		line := strings.Join(record, ",")
-		taskqueue.Add(ctx, &taskqueue.Task{
+		tasks = append(tasks, &taskqueue.Task{
 			Path:    "/queue/push2datastore",
 			Payload: []byte(line),
 			Method:  "POST",
-		}, "default")
+		})
+		if len(tasks) >= 100 {
+			_, err := taskqueue.AddMulti(ctx, tasks, "import")
+			if err != nil {
+				return fmt.Errorf("Failed to add to taskqueue: %v", err)
+			}
+			tasks = nil
+		}
+	}
+	if len(tasks) > 0 {
+		_, err := taskqueue.AddMulti(ctx, tasks, "default")
+		if err != nil {
+			return fmt.Errorf("Failed to add to taskqueue: %v", err)
+		}
+		tasks = nil
 	}
 
 	return nil
@@ -107,7 +122,7 @@ func handlerPushToDatastore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := datastore.NewKey(ctx, "Sample", "", int64(id), nil)
+	key := datastore.NewKey(ctx, "SampleV3", "", int64(id), nil)
 	_, err = datastore.Put(ctx, key, &struct {
 		Name  string
 		Price int
