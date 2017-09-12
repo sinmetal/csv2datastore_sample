@@ -1,0 +1,2 @@
+# csv2datastore_sample
+Google App Engineを利用して、Google Cloud StorageのCSVファイルをDatastoreに入れていくサンプル
